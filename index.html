@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
+    <div id="notifications-container" aria-live="polite"></div>
     <header>
       <h1>Life Dashboard</h1>
       <button
@@ -75,6 +76,35 @@
           </select>
         </div>
         <ul id="task-list" aria-label="Task list"></ul>
+      </section>
+
+      <section id="quicklinks-widget" role="region" aria-labelledby="quicklinks-heading">
+        <h2 id="quicklinks-heading">Quick Links</h2>
+        <form id="quicklink-form">
+          <label for="link-label-input">Label</label>
+          <input
+            id="link-label-input"
+            type="text"
+            placeholder="Link label…"
+            autocomplete="off"
+            aria-label="Quick link label"
+          />
+          <span id="link-label-error" role="alert"></span>
+
+          <label for="link-url-input">URL</label>
+          <input
+            id="link-url-input"
+            type="url"
+            placeholder="https://example.com"
+            autocomplete="off"
+            aria-label="Quick link URL"
+          />
+          <span id="link-url-error" role="alert"></span>
+
+          <button type="submit" aria-label="Add quick link">Add Link</button>
+        </form>
+        <p id="link-limit-msg" role="alert" hidden>Maximum of 50 links reached. Delete a link to add a new one.</p>
+        <div id="links-panel" aria-label="Saved quick links"></div>
       </section>
     </main>
 

@@ -71,6 +71,82 @@ const KEY_TASKS          = 'tld_tasks';
 const KEY_QUICKLINKS     = 'tld_quickLinks';
 const KEY_SORT_ORDER     = 'tld_sortOrder';
 
+// generateId — stable unique id helper (used by NotificationService, TodoWidget and QuickLinksWidget)
+const generateId = () =>
+  crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now() + '-' + Math.random().toString(36).slice(2);
+
+// NotificationService — injects dismissible banner notifications; auto-removes after 4 s
+const NotificationService = (() => {
+  // Map of notification id → setTimeout handle, used by dismiss() to cancel pending auto-removal
+  const _timers = {};
+
+  /**
+   * Displays a dismissible notification banner.
+   * @param {string} message  The text to display.
+   * @param {'error'|'info'|'validation'} type  Controls the banner style.
+   * @returns {string}  A unique id that can be passed to dismiss() to remove the banner early.
+   */
+  function show(message, type) {
+    const id = generateId();
+
+    // Ensure the container exists; create it if absent (Req 9.5 / design §8.4)
+    let container = document.getElementById('notifications-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'notifications-container';
+      container.setAttribute('aria-live', 'polite');
+      document.body.insertBefore(container, document.body.firstChild);
+    }
+
+    // Build the notification element
+    const el = document.createElement('div');
+    el.setAttribute('role', 'alert');
+    el.className = `notification notification--${type}`;
+    el.dataset.id = id;
+
+    const msgSpan = document.createElement('span');
+    msgSpan.className = 'notification__message';
+    msgSpan.textContent = message;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'notification__close';
+    closeBtn.setAttribute('aria-label', 'Dismiss notification');
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => dismiss(id));
+
+    el.appendChild(msgSpan);
+    el.appendChild(closeBtn);
+    container.appendChild(el);
+
+    // Auto-dismiss after 4 s (design §NotificationService)
+    _timers[id] = setTimeout(() => dismiss(id), 4000);
+
+    return id;
+  }
+
+  /**
+   * Removes the notification with the given id from the DOM and cancels its timer.
+   * @param {string} id
+   */
+  function dismiss(id) {
+    // Clear the auto-dismiss timer if it hasn't fired yet
+    if (_timers[id]) {
+      clearTimeout(_timers[id]);
+      delete _timers[id];
+    }
+
+    const el = document.querySelector(`.notification[data-id="${id}"]`);
+    if (el) {
+      el.remove();
+    }
+  }
+
+  return { show, dismiss };
+})();
+
 // ThemeManager — light/dark toggle, OS preference detection, persistence
 const ThemeManager = {
   init() {
@@ -306,3 +382,517 @@ const TimerWidget = (() => {
 
   return { init, start, stop, reset, applyDuration, _validateDuration, _formatDisplay, _tick, _onComplete, state };
 })();
+
+// TodoWidget — CRUD tasks, inline edit, complete/incomplete toggle, sort, localStorage persistence
+const TodoWidget = (() => {
+  let tasks = [];
+  let sortOrder = 'none';
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+
+  function _persist() {
+    const okTasks = StorageService.write(KEY_TASKS, tasks);
+    const okSort  = StorageService.write(KEY_SORT_ORDER, sortOrder);
+    if (!okTasks || !okSort) {
+      NotificationService.show(
+        'Could not save your changes — storage is full.',
+        'error'
+      );
+    }
+  }
+
+  function _getDisplayList() {
+    // Returns a sorted *shallow copy* — never mutates the original tasks array.
+    const copy = tasks.slice();
+    if (sortOrder === 'incomplete-first') {
+      // false (0) < true (1), so subtracting puts false (incomplete) first
+      copy.sort((a, b) => Number(a.completed) - Number(b.completed));
+    } else if (sortOrder === 'completed-first') {
+      copy.sort((a, b) => Number(b.completed) - Number(a.completed));
+    }
+    return copy;
+  }
+
+  // ── rendering ──────────────────────────────────────────────────────────────
+
+  /**
+   * Builds one task <li> row and returns the element.
+   * @param {Object} task  { id, text, completed, createdAt }
+   * @returns {HTMLLIElement}
+   */
+  function _renderTask(task) {
+    const li = document.createElement('li');
+    li.dataset.id = task.id;
+    li.className = 'task-item';
+
+    // Toggle (checkbox-style) button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'task-toggle';
+    toggleBtn.setAttribute('aria-label', task.completed ? 'Mark incomplete' : 'Mark complete');
+    toggleBtn.setAttribute('data-action', 'toggle');
+    toggleBtn.textContent = task.completed ? '✓' : '○';
+
+    // Text span
+    const textSpan = document.createElement('span');
+    textSpan.className = task.completed ? 'task-text completed' : 'task-text';
+    textSpan.textContent = task.text;
+
+    // Edit button
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'task-edit';
+    editBtn.setAttribute('aria-label', 'Edit task');
+    editBtn.setAttribute('data-action', 'edit');
+    editBtn.textContent = 'Edit';
+
+    // Delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'task-delete';
+    deleteBtn.setAttribute('aria-label', 'Delete task');
+    deleteBtn.setAttribute('data-action', 'delete');
+    deleteBtn.textContent = 'Delete';
+
+    li.appendChild(toggleBtn);
+    li.appendChild(textSpan);
+    li.appendChild(editBtn);
+    li.appendChild(deleteBtn);
+
+    return li;
+  }
+
+  /**
+   * Clears #task-list and re-renders every task via event delegation.
+   */
+  function _renderAll() {
+    const listEl = document.getElementById('task-list');
+    if (!listEl) return;
+
+    // Replace all children
+    listEl.innerHTML = '';
+
+    const display = _getDisplayList();
+    display.forEach((task) => {
+      listEl.appendChild(_renderTask(task));
+    });
+  }
+
+  // ── public CRUD ────────────────────────────────────────────────────────────
+
+  function addTask(text) {
+    const trimmed = text.trim();
+    const errorEl = document.getElementById('todo-input-error');
+
+    if (!trimmed) {
+      if (errorEl) errorEl.textContent = 'Task text cannot be empty.';
+      return;
+    }
+    if (errorEl) errorEl.textContent = '';
+
+    const task = {
+      id: generateId(),
+      text: trimmed,
+      completed: false,
+      createdAt: Date.now(),
+    };
+    tasks.push(task);
+    _persist();
+    _renderAll();
+  }
+
+  function deleteTask(id) {
+    tasks = tasks.filter((t) => t.id !== id);
+    _persist();
+    _renderAll();
+  }
+
+  function toggleTask(id) {
+    const task = tasks.find((t) => t.id === id);
+    if (task) {
+      task.completed = !task.completed;
+      _persist();
+      _renderAll();
+    }
+  }
+
+  // ── inline edit ────────────────────────────────────────────────────────────
+
+  function beginEdit(id) {
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+
+    const li = document.querySelector(`[data-id="${id}"]`);
+    if (!li) return;
+
+    // Replace text span with an input
+    const textSpan = li.querySelector('.task-text');
+    if (textSpan) {
+      const editInput = document.createElement('input');
+      editInput.type = 'text';
+      editInput.className = 'task-edit-input';
+      editInput.value = task.text;
+      editInput.maxLength = 250;
+      editInput.setAttribute('aria-label', 'Edit task text');
+      li.replaceChild(editInput, textSpan);
+    }
+
+    // Replace Edit button with Save + Cancel buttons
+    const editBtn = li.querySelector('[data-action="edit"]');
+    if (editBtn) {
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'task-save';
+      saveBtn.setAttribute('aria-label', 'Save edit');
+      saveBtn.setAttribute('data-action', 'save');
+      saveBtn.textContent = 'Save';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'task-cancel';
+      cancelBtn.setAttribute('aria-label', 'Cancel edit');
+      cancelBtn.setAttribute('data-action', 'cancel');
+      cancelBtn.textContent = 'Cancel';
+
+      li.replaceChild(saveBtn, editBtn);
+      li.appendChild(cancelBtn);
+    }
+  }
+
+  function saveEdit(id, newText) {
+    const trimmed = newText.trim();
+
+    // Show inline validation if empty
+    const li = document.querySelector(`[data-id="${id}"]`);
+    let inlineError = li ? li.querySelector('.task-inline-error') : null;
+
+    if (!trimmed) {
+      if (li && !inlineError) {
+        inlineError = document.createElement('span');
+        inlineError.className = 'task-inline-error';
+        li.appendChild(inlineError);
+      }
+      if (inlineError) inlineError.textContent = 'Task text cannot be empty.';
+      return;
+    }
+
+    const task = tasks.find((t) => t.id === id);
+    if (task) {
+      task.text = trimmed;
+      _persist();
+      _renderAll();
+    }
+  }
+
+  function cancelEdit(id) {
+    // Simply re-render — restores the original view without any data mutation
+    _renderAll();
+  }
+
+  // ── sort ───────────────────────────────────────────────────────────────────
+
+  function setSortOrder(order) {
+    sortOrder = order;
+    _persist();
+    _renderAll();
+  }
+
+  // ── init ───────────────────────────────────────────────────────────────────
+
+  function init() {
+    const savedTasks = StorageService.read(KEY_TASKS);
+    tasks = Array.isArray(savedTasks) ? savedTasks : [];
+
+    const savedSort = StorageService.read(KEY_SORT_ORDER);
+    sortOrder = (savedSort === 'incomplete-first' || savedSort === 'completed-first')
+      ? savedSort
+      : 'none';
+
+    // Sync the sort-order <select> to the restored value
+    const sortEl = document.getElementById('sort-order');
+    if (sortEl) {
+      sortEl.value = sortOrder;
+      sortEl.addEventListener('change', () => {
+        setSortOrder(sortEl.value);
+      });
+    }
+
+    // Form submit — add new task
+    const form = document.getElementById('todo-form');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('todo-input');
+        if (input) {
+          addTask(input.value);
+          input.value = '';
+        }
+      });
+    }
+
+    // Event delegation — handle toggle / edit / save / cancel / delete clicks
+    const listEl = document.getElementById('task-list');
+    if (listEl) {
+      listEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        const li = btn.closest('[data-id]');
+        if (!li) return;
+        const id = li.dataset.id;
+
+        switch (btn.dataset.action) {
+          case 'toggle':
+            toggleTask(id);
+            break;
+          case 'edit':
+            beginEdit(id);
+            break;
+          case 'save': {
+            const inputEl = li.querySelector('.task-edit-input');
+            saveEdit(id, inputEl ? inputEl.value : '');
+            break;
+          }
+          case 'cancel':
+            cancelEdit(id);
+            break;
+          case 'delete':
+            deleteTask(id);
+            break;
+        }
+      });
+    }
+
+    _renderAll();
+  }
+
+  return {
+    init,
+    addTask,
+    deleteTask,
+    toggleTask,
+    beginEdit,
+    saveEdit,
+    cancelEdit,
+    setSortOrder,
+    _getDisplayList,
+    _persist,
+    _renderAll,
+    _renderTask,
+  };
+})();
+
+// QuickLinksWidget — add/delete links, render as cards, open in new tab, max-50 enforcement
+const QuickLinksWidget = (() => {
+  let links = [];
+
+  // ── validation ─────────────────────────────────────────────────────────────
+
+  /**
+   * Returns true if `url` is a valid http(s) URL with a non-empty host.
+   * @param {string} url
+   * @returns {boolean}
+   */
+  function _validateUrl(url) {
+    try {
+      const u = new URL(url.trim());
+      return (u.protocol === 'http:' || u.protocol === 'https:') && u.host.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Returns true if `label` is a non-empty, non-whitespace-only string.
+   * @param {string} label
+   * @returns {boolean}
+   */
+  function _validateLabel(label) {
+    return label.trim().length > 0;
+  }
+
+  // ── persistence ────────────────────────────────────────────────────────────
+
+  function _persist() {
+    const ok = StorageService.write(KEY_QUICKLINKS, links);
+    if (!ok) {
+      NotificationService.show(
+        'Could not save your changes — storage is full.',
+        'error'
+      );
+    }
+  }
+
+  // ── rendering ──────────────────────────────────────────────────────────────
+
+  /**
+   * Builds one link card element and returns it.
+   * @param {{ id: string, label: string, url: string, createdAt: number }} link
+   * @returns {HTMLDivElement}
+   */
+  function _renderLink(link) {
+    const card = document.createElement('div');
+    card.className = 'link-card';
+    card.dataset.id = link.id;
+
+    const anchor = document.createElement('a');
+    anchor.href = link.url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.textContent = link.label;
+    anchor.className = 'link-anchor';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'link-delete';
+    deleteBtn.setAttribute('aria-label', `Delete link: ${link.label}`);
+    deleteBtn.setAttribute('data-action', 'delete');
+    deleteBtn.textContent = 'Delete';
+
+    card.appendChild(anchor);
+    card.appendChild(deleteBtn);
+
+    return card;
+  }
+
+  /**
+   * Clears #links-panel and re-renders all links. Toggles #link-limit-msg visibility.
+   */
+  function _renderAll() {
+    const panel = document.getElementById('links-panel');
+    if (!panel) return;
+
+    panel.innerHTML = '';
+    links.forEach((link) => {
+      panel.appendChild(_renderLink(link));
+    });
+
+    const limitMsg = document.getElementById('link-limit-msg');
+    if (limitMsg) {
+      limitMsg.hidden = links.length < 50;
+    }
+  }
+
+  // ── public CRUD ────────────────────────────────────────────────────────────
+
+  /**
+   * Validates inputs and, if both valid and under the 50-link cap, adds the link.
+   * @param {string} label
+   * @param {string} url
+   */
+  function addLink(label, url) {
+    const labelErrorEl = document.getElementById('link-label-error');
+    const urlErrorEl   = document.getElementById('link-url-error');
+
+    const labelValid = _validateLabel(label);
+    const urlValid   = _validateUrl(url);
+
+    if (labelErrorEl) {
+      labelErrorEl.textContent = labelValid ? '' : 'Label cannot be empty.';
+    }
+    if (urlErrorEl) {
+      urlErrorEl.textContent = urlValid
+        ? ''
+        : 'Please enter a valid URL starting with http:// or https://.';
+    }
+
+    if (!labelValid || !urlValid) return;
+
+    // Enforce 50-link cap
+    if (links.length >= 50) {
+      const limitMsg = document.getElementById('link-limit-msg');
+      if (limitMsg) limitMsg.hidden = false;
+      return;
+    }
+
+    const link = {
+      id: generateId(),
+      label: label.trim(),
+      url: url.trim(),
+      createdAt: Date.now(),
+    };
+    links.push(link);
+    _persist();
+    _renderAll();
+  }
+
+  /**
+   * Removes the link with the given id, then persists and re-renders.
+   * @param {string} id
+   */
+  function deleteLink(id) {
+    links = links.filter((l) => l.id !== id);
+    _persist();
+    _renderAll();
+  }
+
+  // ── init ───────────────────────────────────────────────────────────────────
+
+  function init() {
+    const saved = StorageService.read(KEY_QUICKLINKS);
+    links = Array.isArray(saved) ? saved : [];
+
+    // Form submit — add new link
+    const form = document.getElementById('quicklink-form');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const labelInput = document.getElementById('link-label-input');
+        const urlInput   = document.getElementById('link-url-input');
+        if (labelInput && urlInput) {
+          addLink(labelInput.value, urlInput.value);
+          // Clear inputs only on successful add (errors stay visible otherwise)
+          const labelErrorEl = document.getElementById('link-label-error');
+          const urlErrorEl   = document.getElementById('link-url-error');
+          if (
+            labelErrorEl && urlErrorEl &&
+            labelErrorEl.textContent === '' &&
+            urlErrorEl.textContent === ''
+          ) {
+            labelInput.value = '';
+            urlInput.value   = '';
+          }
+        }
+      });
+    }
+
+    // Event delegation — handle delete clicks on the links panel
+    const panel = document.getElementById('links-panel');
+    if (panel) {
+      panel.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="delete"]');
+        if (!btn) return;
+        const card = btn.closest('[data-id]');
+        if (!card) return;
+        deleteLink(card.dataset.id);
+      });
+    }
+
+    _renderAll();
+  }
+
+  return {
+    init,
+    addLink,
+    deleteLink,
+    _validateUrl,
+    _validateLabel,
+    _persist,
+    _renderAll,
+    _renderLink,
+  };
+})();
+
+// Conditional export for Jest/Node testing environment
+// The browser never defines `module`, so this block is skipped in production.
+if (typeof module !== 'undefined') {
+  module.exports = {
+    StorageService,
+    NotificationService,
+    ThemeManager,
+    GreetingWidget,
+    TimerWidget,
+    TodoWidget,
+    QuickLinksWidget,
+    generateId,
+  };
+}

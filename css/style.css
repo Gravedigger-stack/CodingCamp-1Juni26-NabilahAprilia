@@ -44,3 +44,125 @@ body {
   min-height: 100vh;
   line-height: 1.5;
 }
+
+/* =========================================================
+   Notifications Container & Notification Banners
+   NotificationService appends .notification.notification--{type}
+   elements to #notifications-container (position: fixed, top-right).
+   ========================================================= */
+
+/* Container — fixed anchor at top-right of viewport */
+#notifications-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  /* Pointer events passthrough when empty */
+  pointer-events: none;
+  /* Constrain banner width */
+  max-width: min(360px, calc(100vw - 2rem));
+}
+
+/* ── Keyframes ──────────────────────────────────────────── */
+
+@keyframes notification-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes notification-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.97);
+  }
+}
+
+/* ── Base notification banner ───────────────────────────── */
+
+.notification {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #ffffff;
+  animation: notification-fade-in 0.25s ease forwards;
+  /* Prepare for JS-driven fade-out if needed */
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* ── Type-specific background colours ──────────────────── */
+
+/* Error — red/danger */
+.notification--error {
+  background-color: #dc2626; /* red-600 */
+}
+
+/* Info — blue/neutral */
+.notification--info {
+  background-color: #2563eb; /* blue-600 */
+}
+
+/* Validation — amber/warning */
+.notification--validation {
+  background-color: #d97706; /* amber-600 */
+}
+
+/* ── Message text ───────────────────────────────────────── */
+
+.notification__message {
+  flex: 1;
+}
+
+/* ── Dismiss (close) button ─────────────────────────────── */
+
+.notification__close {
+  flex-shrink: 0;
+  appearance: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+  /* Accessible tap target */
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.notification__close:hover,
+.notification__close:focus-visible {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.2);
+  outline: none;
+}
+
+/* ── Fade-out utility class (add via JS before removal) ─── */
+
+.notification--dismissing {
+  animation: notification-fade-out 0.25s ease forwards;
+}
