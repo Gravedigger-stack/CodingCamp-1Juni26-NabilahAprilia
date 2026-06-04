@@ -3,111 +3,326 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Life Dashboard</title>
+    <meta name="description" content="A personal productivity dashboard with a live clock, Pomodoro focus timer, to-do list, and quick links." />
+    <title>🌿 Life Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
     <div id="notifications-container" aria-live="polite"></div>
+
+    <!-- ══════════════════════════════════════════
+         Header — with bear mascot + name form in navbar
+    ══════════════════════════════════════════ -->
     <header>
+
+      <!-- Brand -->
       <h1>Life Dashboard</h1>
+
+      <!-- ── Bear Mascot ── -->
+      <div class="bear-mascot" aria-hidden="true" id="bear-mascot">
+        <!-- Bear built entirely from CSS divs -->
+        <div class="bear">
+          <div class="bear__ear bear__ear--left">
+            <div class="bear__ear-inner"></div>
+          </div>
+          <div class="bear__ear bear__ear--right">
+            <div class="bear__ear-inner"></div>
+          </div>
+          <div class="bear__head">
+            <div class="bear__eye bear__eye--left"></div>
+            <div class="bear__eye bear__eye--right"></div>
+            <div class="bear__nose"></div>
+            <div class="bear__mouth"></div>
+            <!-- Sleeping Zzz (dark mode only) -->
+            <div class="bear__zzz" aria-hidden="true">
+              <span style="--i:0">z</span>
+              <span style="--i:1">z</span>
+              <span style="--i:2">Z</span>
+            </div>
+          </div>
+          <div class="bear__body">
+            <div class="bear__belly"></div>
+            <div class="bear__arm bear__arm--left"></div>
+            <div class="bear__arm bear__arm--right"></div>
+            <div class="bear__leg bear__leg--left"></div>
+            <div class="bear__leg bear__leg--right"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Decorative leaves -->
+      <div class="header-deco" aria-hidden="true">
+        <span class="deco-leaf">🍀</span>
+        <span class="deco-leaf">🌸</span>
+        <span class="deco-leaf">🍄</span>
+      </div>
+
+      <!-- ── Villager Name in Navbar ── -->
+      <div class="nav-name-area">
+        <button
+          class="nav-name-trigger"
+          id="nav-name-trigger"
+          aria-expanded="false"
+          aria-haspopup="true"
+          aria-controls="nav-name-popup"
+          type="button"
+        >
+          <span class="nav-name-icon">🪪</span>
+          <span class="nav-name-label" id="nav-name-display">Set Name</span>
+          <span class="nav-name-arrow">▾</span>
+        </button>
+
+        <div class="nav-name-popup" id="nav-name-popup" role="dialog" aria-label="Set your villager name" hidden>
+          <div class="nav-name-popup-inner">
+            <p class="nav-name-popup-title">✏️ Your Villager Name</p>
+            <form id="name-form" autocomplete="off">
+              <input
+                id="name-input"
+                type="text"
+                maxlength="50"
+                placeholder="Enter your name…"
+                aria-label="Your villager name"
+              />
+              <span id="name-error" role="alert"></span>
+              <div class="nav-name-popup-actions">
+                <button type="submit" aria-label="Save name">💾 Save</button>
+                <button type="button" class="btn-clear-name" id="btn-clear-name" aria-label="Clear name">🗑 Clear</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Theme toggle -->
       <button
         id="theme-toggle"
-        aria-label="Switch to Dark Mode"
+        aria-label="Switch to Night Mode"
         onclick="ThemeManager.toggle()"
-      >🌙 Dark Mode</button>
+      >🌙 Night Mode</button>
+
     </header>
 
+    <!-- ══════════════════════════════════════════
+         Dashboard Grid
+         Layout (desktop, ≥900px):
+         ┌─────────────────────┬────────────┐
+         │  Greeting (2 cols)  │   Timer    │
+         ├─────────────────────┼────────────┤
+         │  To-Do  (2 cols)    │ Quick Links│
+         └─────────────────────┴────────────┘
+    ══════════════════════════════════════════ -->
     <main id="dashboard">
+
+      <!-- ── 1. Greeting & Clock ─────────────────── -->
       <section id="greeting-widget" role="region" aria-labelledby="greeting-heading">
-        <h2 id="greeting-heading" class="sr-only">Greeting</h2>
-        <div id="clock" aria-live="polite">--:--:--</div>
-        <div id="date-display"></div>
-        <p id="greeting-text"></p>
-        <form id="name-form">
-          <label for="name-input">Your name</label>
-          <input
-            id="name-input"
-            type="text"
-            maxlength="50"
-            placeholder="Enter your name…"
-            autocomplete="off"
-          />
-          <button type="submit">Save</button>
-          <span id="name-error" role="alert"></span>
-        </form>
+        <h2 id="greeting-heading">
+          <span class="sr-only">Greeting</span>
+          Good Vibes Only
+        </h2>
+
+        <div class="greeting-clock-block">
+          <div id="clock" aria-live="polite" aria-atomic="true">--:--:--</div>
+          <div id="date-display"></div>
+          <p id="greeting-text"></p>
+        </div>
+
       </section>
 
+      <!-- ── 2. Pomodoro Timer ───────────────────── -->
       <section id="timer-widget" role="region" aria-labelledby="timer-heading">
-        <h2 id="timer-heading">Focus Timer</h2>
+        <h2 id="timer-heading">
+          <span class="sr-only">Focus Timer</span>
+          Focus Time!
+        </h2>
+
         <div id="timer-display" aria-live="polite" aria-atomic="true">25:00</div>
+
         <div class="timer-controls">
-          <button id="timer-start" aria-label="Start timer">Start</button>
-          <button id="timer-stop" aria-label="Stop timer">Stop</button>
-          <button id="timer-reset" aria-label="Reset timer">Reset</button>
+          <button id="timer-start" aria-label="Start timer">▶ Start</button>
+          <button id="timer-stop"  aria-label="Stop timer">⏸ Stop</button>
+          <button id="timer-reset" aria-label="Reset timer">🔄 Reset</button>
         </div>
-        <div id="timer-complete-msg" role="alert" hidden>Focus session complete! Great work.</div>
+
+        <div id="timer-complete-msg" role="alert" hidden>
+          🎉 Session complete! Great work!
+        </div>
+
         <div class="duration-controls">
-          <label for="duration-input">Duration (minutes)</label>
-          <input id="duration-input" type="number" min="1" max="120" value="25" aria-label="Timer duration in minutes" />
-          <button id="duration-apply" aria-label="Apply duration">Apply</button>
+          <label for="duration-input">⏱ Duration (min)</label>
+          <div class="duration-row">
+            <input
+              id="duration-input"
+              type="number"
+              min="1"
+              max="120"
+              value="25"
+              aria-label="Timer duration in minutes"
+            />
+            <button id="duration-apply" aria-label="Apply duration">✅ Set</button>
+          </div>
           <span id="duration-error" role="alert"></span>
         </div>
       </section>
+
+      <!-- ── 3. To-Do List ──────────────────────── -->
       <section id="todo-widget" role="region" aria-labelledby="todo-heading">
-        <h2 id="todo-heading">To-Do List</h2>
-        <form id="todo-form">
-          <label for="todo-input">New task</label>
-          <input
-            id="todo-input"
-            type="text"
-            maxlength="250"
-            placeholder="Enter a task…"
-            autocomplete="off"
-          />
-          <button type="submit" aria-label="Add task">Add</button>
-          <span id="todo-input-error" role="alert"></span>
-        </form>
-        <div class="todo-sort">
-          <label for="sort-order">Sort by</label>
-          <select id="sort-order" aria-label="Sort tasks">
-            <option value="none">None</option>
-            <option value="incomplete-first">Incomplete first</option>
-            <option value="completed-first">Completed first</option>
-          </select>
+        <h2 id="todo-heading">
+          <span class="sr-only">To-Do List</span>
+          Today's Tasks
+        </h2>
+
+        <div class="todo-top">
+          <form id="todo-form" autocomplete="off">
+            <label for="todo-input">🌸 New task</label>
+            <div class="input-row">
+              <input
+                id="todo-input"
+                type="text"
+                maxlength="250"
+                placeholder="What would you like to do?"
+              />
+              <button type="submit" aria-label="Add task">➕ Add</button>
+            </div>
+            <span id="todo-input-error" role="alert"></span>
+          </form>
+
+          <div class="todo-sort">
+            <label for="sort-order">🔀 Sort</label>
+            <select id="sort-order" aria-label="Sort tasks">
+              <option value="none">🌿 Default</option>
+              <option value="incomplete-first">⭕ Incomplete first</option>
+              <option value="completed-first">✅ Done first</option>
+            </select>
+          </div>
         </div>
+
         <ul id="task-list" aria-label="Task list"></ul>
       </section>
 
+      <!-- ── 4. Quick Links ─────────────────────── -->
       <section id="quicklinks-widget" role="region" aria-labelledby="quicklinks-heading">
-        <h2 id="quicklinks-heading">Quick Links</h2>
-        <form id="quicklink-form">
-          <label for="link-label-input">Label</label>
+        <h2 id="quicklinks-heading">
+          <span class="sr-only">Quick Links</span>
+          My Fave Links
+        </h2>
+
+        <form id="quicklink-form" autocomplete="off">
+          <label for="link-label-input">🏷️ Label</label>
           <input
             id="link-label-input"
             type="text"
-            placeholder="Link label…"
-            autocomplete="off"
+            placeholder="e.g. YouTube"
             aria-label="Quick link label"
           />
           <span id="link-label-error" role="alert"></span>
 
-          <label for="link-url-input">URL</label>
+          <label for="link-url-input">🌐 URL</label>
           <input
             id="link-url-input"
             type="url"
             placeholder="https://example.com"
-            autocomplete="off"
             aria-label="Quick link URL"
           />
           <span id="link-url-error" role="alert"></span>
 
-          <button type="submit" aria-label="Add quick link">Add Link</button>
+          <button type="submit" aria-label="Add quick link">🔖 Add Link</button>
         </form>
-        <p id="link-limit-msg" role="alert" hidden>Maximum of 50 links reached. Delete a link to add a new one.</p>
+
+        <p id="link-limit-msg" role="alert" hidden>
+          Maximum of 50 links reached.
+        </p>
         <div id="links-panel" aria-label="Saved quick links"></div>
       </section>
+
     </main>
 
     <script defer src="js/app.js"></script>
+
+    <!-- ── Navbar name popup toggle logic ── -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const trigger = document.getElementById('nav-name-trigger');
+        const popup   = document.getElementById('nav-name-popup');
+        const clearBtn = document.getElementById('btn-clear-name');
+
+        if (!trigger || !popup) return;
+
+        // Toggle popup
+        trigger.addEventListener('click', function () {
+          const isOpen = popup.hidden === false;
+          popup.hidden = isOpen;
+          trigger.setAttribute('aria-expanded', String(!isOpen));
+          if (!isOpen) {
+            const input = document.getElementById('name-input');
+            if (input) setTimeout(() => input.focus(), 50);
+          }
+        });
+
+        // Close on outside click
+        document.addEventListener('click', function (e) {
+          const area = document.querySelector('.nav-name-area');
+          if (area && !area.contains(e.target)) {
+            popup.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+          }
+        });
+
+        // Close on Escape
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && !popup.hidden) {
+            popup.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            trigger.focus();
+          }
+        });
+
+        // Clear button
+        if (clearBtn) {
+          clearBtn.addEventListener('click', function () {
+            if (typeof GreetingWidget !== 'undefined') {
+              GreetingWidget.setName('');
+            }
+            const input = document.getElementById('name-input');
+            if (input) input.value = '';
+            const display = document.getElementById('nav-name-display');
+            if (display) display.textContent = 'Set Name';
+          });
+        }
+
+        // After name form submit, update nav label and close popup
+        const nameForm = document.getElementById('name-form');
+        if (nameForm) {
+          nameForm.addEventListener('submit', function () {
+            setTimeout(function () {
+              const input = document.getElementById('name-input');
+              const display = document.getElementById('nav-name-display');
+              if (input && display) {
+                const val = input.value.trim();
+                display.textContent = val ? '🐾 ' + val : 'Set Name';
+              }
+              // Close popup after save
+              popup.hidden = true;
+              trigger.setAttribute('aria-expanded', 'false');
+            }, 80);
+          });
+        }
+
+        // On load: restore name label from localStorage
+        const savedName = localStorage.getItem('tld_userName');
+        if (savedName) {
+          try {
+            const parsed = JSON.parse(savedName);
+            if (parsed && typeof parsed === 'string' && parsed.trim()) {
+              const display = document.getElementById('nav-name-display');
+              if (display) display.textContent = '🐾 ' + parsed.trim();
+              const input = document.getElementById('name-input');
+              if (input) input.value = parsed.trim();
+            }
+          } catch (e) {}
+        }
+      });
+    </script>
   </body>
 </html>

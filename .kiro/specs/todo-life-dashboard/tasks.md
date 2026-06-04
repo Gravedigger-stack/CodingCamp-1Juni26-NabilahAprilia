@@ -108,7 +108,7 @@ This plan breaks the To-Do List Life Dashboard into 12 ordered implementation wa
   - [x] 6.2 In `js/app.js`, define the `TodoWidget` object with methods: `init()`, `addTask(text)`, `deleteTask(id)`, `toggleTask(id)`, `beginEdit(id)`, `saveEdit(id, newText)`, `cancelEdit(id)`, `setSortOrder(order)`, `_getDisplayList()`, `_persist()`, `_renderAll()`, and `_renderTask(task)`.
   - [x] 6.3 Define module-level `tasks = []` and `sortOrder = 'none'` variables inside the TodoWidget closure.
   - [x] 6.4 Implement `addTask(text)`: trim the text; if empty, show validation in `#todo-input-error` and return; create a `Task` object `{ id: generateId(), text: trimmed, completed: false, createdAt: Date.now() }`; push to `tasks`; call `_persist()` and `_renderAll()`.
-  - [ ] 6.5 Implement `deleteTask(id)`: filter `tasks` to remove the entry with the matching id; call `_persist()` and `_renderAll()`.
+  - [x] 6.5 Implement `deleteTask(id)`: filter `tasks` to remove the entry with the matching id; call `_persist()` and `_renderAll()`.
   - [x] 6.6 Implement `toggleTask(id)`: find the task by id; flip `task.completed`; call `_persist()` and `_renderAll()`.
   - [x] 6.7 Implement `beginEdit(id)`: in the DOM row for the given id, replace the text `<span>` with an `<input>` pre-filled with `task.text`, and replace the Edit button with Save and Cancel buttons.
   - [x] 6.8 Implement `saveEdit(id, newText)`: trim `newText`; if empty/whitespace, show inline validation and return; update `task.text`; call `_persist()` and `_renderAll()`.
@@ -143,25 +143,25 @@ This plan breaks the To-Do List Life Dashboard into 12 ordered implementation wa
   - [x] 8.5 Add CSS for `.notification`, `.notification--error`, `.notification--info`, `.notification--validation` in `css/style.css`: position fixed (top-right), appropriate background colors per type, a dismiss button, and a fade-in/out animation.
   - **References:** Requirement 9.5, 7.8, 8.7; Design — Error Handling section
 
-- [ ] 9. Data Persistence and localStorage Integration
+- [x] 9. Data Persistence and localStorage Integration
   - [x] 9.1 Verify that every widget calls `StorageService.write(...)` within its mutation methods (`addTask`, `deleteTask`, `toggleTask`, `saveEdit`, `setSortOrder`, `addLink`, `deleteLink`, `applyDuration`, `setName`, `apply` in ThemeManager). Add any missing write calls found during review.
-  - [ ] 9.2 Verify that every widget's `init()` calls `StorageService.read(...)` before rendering, and that a `null` return from `read()` causes the widget to initialize with its documented default state (empty array, `'none'` sort, 25 min timer, no name, light/OS theme).
-  - [ ] 9.3 Add the `generateId()` helper before any widget that uses it: `const generateId = () => crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2);` and use `generateId()` in all widget id generation calls.
-  - [ ] 9.4 Implement the `init()` bootstrap function at the bottom of `js/app.js`: attach a `DOMContentLoaded` listener that calls `ThemeManager.init()`, then `NotificationService` setup, then `GreetingWidget.init()`, `TimerWidget.init()`, `TodoWidget.init()`, `QuickLinksWidget.init()` in that order.
-  - [ ] 9.5 Verify the 100 ms persistence requirement: ensure all `StorageService.write` calls are synchronous (they are, since `localStorage.setItem` is synchronous) and document this in a comment near the `write` method.
+  - [x] 9.2 Verify that every widget's `init()` calls `StorageService.read(...)` before rendering, and that a `null` return from `read()` causes the widget to initialize with its documented default state (empty array, `'none'` sort, 25 min timer, no name, light/OS theme).
+  - [x] 9.3 Add the `generateId()` helper before any widget that uses it: `const generateId = () => crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2);` and use `generateId()` in all widget id generation calls.
+  - [x] 9.4 Implement the `init()` bootstrap function at the bottom of `js/app.js`: attach a `DOMContentLoaded` listener that calls `ThemeManager.init()`, then `NotificationService` setup, then `GreetingWidget.init()`, `TimerWidget.init()`, `TodoWidget.init()`, `QuickLinksWidget.init()` in that order.
+  - [x] 9.5 Verify the 100 ms persistence requirement: ensure all `StorageService.write` calls are synchronous (they are, since `localStorage.setItem` is synchronous) and document this in a comment near the `write` method.
   - **References:** Requirement 9.1–9.5; Design — Data Flow, StorageService sections
 
-- [ ] 10. Responsive Layout and Accessibility
-  - [ ] 10.1 In `css/style.css`, implement a CSS Grid or Flexbox layout for the four widget sections: on viewports ≥ 768 px use a two-column grid; on viewports ≤ 767 px stack widgets in a single column. Verify no horizontal scrolling at 320 px width.
-  - [ ] 10.2 Add CSS media queries to ensure the layout adapts from 320 px to 2560 px: `@media (max-width: 767px)` for mobile and `@media (min-width: 1440px)` for large screens.
-  - [ ] 10.3 Audit all interactive elements in `index.html` (buttons, inputs, links, toggles) and ensure each has an `aria-label` or associated `<label>`. Add missing labels.
-  - [ ] 10.4 Ensure all interactive elements have a minimum CSS touch target size of 44 × 44 px via `min-width: 44px; min-height: 44px` on buttons and links.
-  - [ ] 10.5 Ensure `body` has `font-size: 16px` and that no element in `css/style.css` sets `font-size` below `14px`.
-  - [ ] 10.6 Add `:focus-visible` styles to all interactive elements for keyboard navigation accessibility.
-  - [ ] 10.7 Add `<meta name="description">` to `index.html`. Ensure `<html lang="en">` is set. Add `role="region"` with `aria-labelledby` to each widget `<section>`.
-  - [ ] 10.8 Open `index.html` directly in a browser (no server required) and verify all four widgets render, the clock ticks, and no console errors appear.
+- [x] 10. Responsive Layout and Accessibility
+  - [x] 10.1 In `css/style.css`, implement a CSS Grid or Flexbox layout for the four widget sections: on viewports ≥ 768 px use a two-column grid; on viewports ≤ 767 px stack widgets in a single column. Verify no horizontal scrolling at 320 px width.
+  - [x] 10.2 Add CSS media queries to ensure the layout adapts from 320 px to 2560 px: `@media (max-width: 767px)` for mobile and `@media (min-width: 1440px)` for large screens.
+  - [x] 10.3 Audit all interactive elements in `index.html` (buttons, inputs, links, toggles) and ensure each has an `aria-label` or associated `<label>`. Add missing labels.
+  - [x] 10.4 Ensure all interactive elements have a minimum CSS touch target size of 44 × 44 px via `min-width: 44px; min-height: 44px` on buttons and links.
+  - [x] 10.5 Ensure `body` has `font-size: 16px` and that no element in `css/style.css` sets `font-size` below `14px`.
+  - [x] 10.6 Add `:focus-visible` styles to all interactive elements for keyboard navigation accessibility.
+  - [-] 10.7 Add `<meta name="description">` to `index.html`. Ensure `<html lang="en">` is set. Add `role="region"` with `aria-labelledby` to each widget `<section>`.
+  - [x] 10.8 Open `index.html` directly in a browser (no server required) and verify all four widgets render, the clock ticks, and no console errors appear.
   - **References:** Requirement 10.4–10.7
-  - [ ] 12.8 Run the full test suite with `npm test` and verify all tests pass. Fix any test failures caused by implementation bugs (not by incorrect test logic).
+  - [x] 12.8 Run the full test suite with `npm test` and verify all tests pass. Fix any test failures caused by implementation bugs (not by incorrect test logic).
   - **References:** Requirement 9.1–9.5, 10.1–10.7; Design — Unit Test Focus Areas, Integration Test Focus Areas
 
 ## Notes

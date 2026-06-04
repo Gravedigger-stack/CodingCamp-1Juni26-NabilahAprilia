@@ -37,6 +37,28 @@ const StorageService = {
   /**
    * JSON-serialises a value and writes it to localStorage under the given key.
    * Returns true on success, false on QuotaExceededError or any other error.
+   *
+   * SYNCHRONOUS PERSISTENCE (Req 9.2):
+   * `localStorage.setItem` is a synchronous, blocking call — it completes before
+   * control returns to the caller.  This means every `StorageService.write()`
+   * call finishes within the same JavaScript call stack as the user action that
+   * triggered it, easily satisfying the ≤100 ms write requirement from Req 9.2.
+   * No asynchronous coordination (promises, callbacks, workers) is needed.
+   *
+   * All widget mutation methods that must satisfy Req 9.2 route their writes
+   * through this method (directly or via a widget-local `_persist()` helper):
+   *   • TodoWidget.addTask      → _persist() → StorageService.write(KEY_TASKS, …)
+   *                                          → StorageService.write(KEY_SORT_ORDER, …)
+   *   • TodoWidget.deleteTask   → _persist() → (same as above)
+   *   • TodoWidget.toggleTask   → _persist() → (same as above)
+   *   • TodoWidget.saveEdit     → _persist() → (same as above)
+   *   • TodoWidget.setSortOrder → _persist() → (same as above)
+   *   • QuickLinksWidget.addLink    → _persist() → StorageService.write(KEY_QUICKLINKS, …)
+   *   • QuickLinksWidget.deleteLink → _persist() → (same as above)
+   *   • ThemeManager.apply          → StorageService.write(KEY_THEME, …) (direct)
+   *   • GreetingWidget.setName      → StorageService.write(KEY_USERNAME, …) (direct)
+   *   • TimerWidget.applyDuration   → StorageService.write(KEY_TIMER_DURATION, …) (direct)
+   *
    * @param {string} key
    * @param {*} value
    * @returns {boolean}
@@ -165,8 +187,8 @@ const ThemeManager = {
     document.documentElement.dataset.theme = theme;
     const btn = document.getElementById('theme-toggle');
     if (btn) {
-      const label = theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-      const text  = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+      const label = theme === 'dark' ? 'Switch to Day Mode' : 'Switch to Night Mode';
+      const text  = theme === 'dark' ? '☀️ Day Mode' : '🌙 Night Mode';
       btn.setAttribute('aria-label', label);
       btn.textContent = text;
     }
@@ -358,6 +380,15 @@ const TimerWidget = (() => {
   }
 
   function init() {
+    // Always reset to defaults first, then apply any valid stored value.
+    // This ensures repeated init() calls (e.g., in tests) start from a clean state.
+    state.configured = 25;
+    state.running = false;
+    if (state.intervalId !== null) {
+      clearInterval(state.intervalId);
+      state.intervalId = null;
+    }
+
     const saved = StorageService.read(KEY_TIMER_DURATION);
     const valid = _validateDuration(String(saved));
     if (valid !== null) state.configured = valid;
@@ -881,6 +912,32 @@ const QuickLinksWidget = (() => {
     _renderLink,
   };
 })();
+
+// Bootstrap — wire up all widgets once the DOM is fully parsed.
+// Initialisation order matters: ThemeManager first (prevents flash of unstyled theme),
+// then NotificationService container readiness, then the four content widgets.
+document.addEventListener('DOMContentLoaded', () => {
+  // 1. Apply the saved (or OS-detected) theme before any content renders,
+  //    to prevent a flash of the wrong colour scheme.
+  ThemeManager.init();
+
+  // 2. Ensure the #notifications-container exists so that any widget that calls
+  //    NotificationService.show() during its own init() has a container ready.
+  //    NotificationService itself is a lazy-init IIFE (it creates the container
+  //    on first use), but we prime it here for clarity and robustness.
+  if (!document.getElementById('notifications-container')) {
+    const container = document.createElement('div');
+    container.id = 'notifications-container';
+    container.setAttribute('aria-live', 'polite');
+    document.body.insertBefore(container, document.body.firstChild);
+  }
+
+  // 3–6. Initialise content widgets in display order.
+  GreetingWidget.init();
+  TimerWidget.init();
+  TodoWidget.init();
+  QuickLinksWidget.init();
+});
 
 // Conditional export for Jest/Node testing environment
 // The browser never defines `module`, so this block is skipped in production.
