@@ -1,2 +1,2 @@
-# CodingCamp-1Juni26-NabilahAprilia
+# CodingCamp-1June26-NabilahAprilia
 Mini Coding Project To-Do List Life Dashboard 
