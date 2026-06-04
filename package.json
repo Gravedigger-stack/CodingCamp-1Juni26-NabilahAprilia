@@ -1,0 +1,13 @@
+{
+  "name": "todo-life-dashboard",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "test": "jest --testEnvironment jsdom"
+  },
+  "devDependencies": {
+    "jest": "29.7.0",
+    "jest-environment-jsdom": "29.7.0",
+    "fast-check": "3.19.0"
+  }
+}
