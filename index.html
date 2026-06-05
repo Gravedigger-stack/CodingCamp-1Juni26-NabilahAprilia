@@ -123,11 +123,45 @@
         </h2>
 
         <div class="greeting-clock-block">
+
+          <!-- Weather/time-of-day icon (changes via JS) -->
+          <div class="greeting-scene" aria-hidden="true">
+            <span class="scene-icon" id="scene-icon">🌤️</span>
+            <span class="scene-dot s1">✦</span>
+            <span class="scene-dot s2">✦</span>
+            <span class="scene-dot s3">·</span>
+            <span class="scene-dot s4">✦</span>
+          </div>
+
           <div id="clock" aria-live="polite" aria-atomic="true">--:--:--</div>
           <div id="date-display"></div>
           <p id="greeting-text"></p>
-        </div>
 
+          <!-- Day progress bar -->
+          <div class="day-progress-wrap" title="Day progress">
+            <div class="day-progress-label">
+              <span class="dp-left">
+                <span id="dp-emoji">🌅</span>
+                <span id="dp-time-label">Dawn</span>
+              </span>
+              <span class="dp-right" id="dp-percent">0%</span>
+            </div>
+            <!-- milestone icons -->
+            <div class="day-progress-milestones" aria-hidden="true">
+              <span class="dp-milestone" data-hour="5"  id="dp-m0">🌅</span>
+              <span class="dp-milestone" data-hour="9"  id="dp-m1">☀️</span>
+              <span class="dp-milestone" data-hour="12" id="dp-m2">🌞</span>
+              <span class="dp-milestone" data-hour="17" id="dp-m3">🌤️</span>
+              <span class="dp-milestone" data-hour="20" id="dp-m4">🌆</span>
+              <span class="dp-milestone" data-hour="22" id="dp-m5">🌙</span>
+            </div>
+            <div class="day-progress-bar">
+              <div class="day-progress-fill" id="day-progress-fill"></div>
+              <div class="day-progress-thumb" id="day-progress-thumb">🐾</div>
+            </div>
+          </div>
+
+        </div>
       </section>
 
       <!-- ── 2. Pomodoro Timer ───────────────────── -->
@@ -240,27 +274,91 @@
 
     <script defer src="js/app.js"></script>
 
+    <!-- ── Day progress + scene icon updater ── -->
+    <script>
+      function updateDayProgress() {
+        var now = new Date();
+        var h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+        var totalSec = h * 3600 + m * 60 + s;
+        var pct = Math.round((totalSec / 86400) * 100);
+
+        var fill      = document.getElementById('day-progress-fill');
+        var thumb     = document.getElementById('day-progress-thumb');
+        var dpEmoji   = document.getElementById('dp-emoji');
+        var dpLabel   = document.getElementById('dp-time-label');
+        var dpPct     = document.getElementById('dp-percent');
+        var sceneIcon = document.getElementById('scene-icon');
+
+        if (fill)  fill.style.width = pct + '%';
+        if (thumb) thumb.style.left = 'calc(' + pct + '% - 11px)';
+        if (dpPct) dpPct.textContent = pct + '%';
+
+        var isDark = document.documentElement.dataset.theme === 'dark';
+
+        /* Light mode: sun icons during day, moon at night
+           Dark mode : night/star palette throughout         */
+        var periodsLight = [
+          { min:0,  max:5,  emoji:'🌙', label:'Midnight', scene:'🌙' },
+          { min:5,  max:7,  emoji:'🌅', label:'Dawn',     scene:'🌅' },
+          { min:7,  max:12, emoji:'☀️',  label:'Morning',  scene:'☀️' },
+          { min:12, max:15, emoji:'🌞', label:'Noon',     scene:'🌞' },
+          { min:15, max:18, emoji:'🌤️', label:'Afternoon',scene:'🌤️'},
+          { min:18, max:21, emoji:'🌆', label:'Evening',  scene:'🌆' },
+          { min:21, max:24, emoji:'🌃', label:'Night',    scene:'🌃' }
+        ];
+        var periodsDark = [
+          { min:0,  max:5,  emoji:'🌙', label:'Midnight', scene:'🌙' },
+          { min:5,  max:7,  emoji:'🌙', label:'Dawn',     scene:'🌙' },
+          { min:7,  max:12, emoji:'⭐', label:'Morning',  scene:'🌟' },
+          { min:12, max:15, emoji:'⭐', label:'Noon',     scene:'🌟' },
+          { min:15, max:18, emoji:'🌌', label:'Afternoon',scene:'🌌' },
+          { min:18, max:21, emoji:'🌃', label:'Evening',  scene:'🌃' },
+          { min:21, max:24, emoji:'🌙', label:'Night',    scene:'🌙' }
+        ];
+
+        var periods = isDark ? periodsDark : periodsLight;
+        var period  = periods.find(function(p){ return h >= p.min && h < p.max; }) || periods[0];
+
+        if (dpEmoji)   dpEmoji.textContent   = period.emoji;
+        if (dpLabel)   dpLabel.textContent   = period.label;
+        if (sceneIcon) sceneIcon.textContent = period.scene;
+
+        /* Highlight active milestone */
+        var milestoneHours = [5, 9, 12, 17, 20, 22];
+        for (var i = 0; i < 6; i++) {
+          var el = document.getElementById('dp-m' + i);
+          if (!el) continue;
+          var isActive = milestoneHours[i] <= h &&
+            (i === 5 || milestoneHours[i + 1] > h);
+          el.classList.toggle('active', isActive);
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        updateDayProgress();
+        setInterval(updateDayProgress, 10000);
+      });
+    </script>
+
     <!-- ── Navbar name popup toggle logic ── -->
     <script>
       document.addEventListener('DOMContentLoaded', function () {
-        const trigger = document.getElementById('nav-name-trigger');
-        const popup   = document.getElementById('nav-name-popup');
+        const trigger  = document.getElementById('nav-name-trigger');
+        const popup    = document.getElementById('nav-name-popup');
         const clearBtn = document.getElementById('btn-clear-name');
 
         if (!trigger || !popup) return;
 
-        // Toggle popup
         trigger.addEventListener('click', function () {
-          const isOpen = popup.hidden === false;
+          const isOpen = !popup.hidden;
           popup.hidden = isOpen;
           trigger.setAttribute('aria-expanded', String(!isOpen));
           if (!isOpen) {
             const input = document.getElementById('name-input');
-            if (input) setTimeout(() => input.focus(), 50);
+            if (input) setTimeout(function(){ input.focus(); }, 50);
           }
         });
 
-        // Close on outside click
         document.addEventListener('click', function (e) {
           const area = document.querySelector('.nav-name-area');
           if (area && !area.contains(e.target)) {
@@ -269,7 +367,6 @@
           }
         });
 
-        // Close on Escape
         document.addEventListener('keydown', function (e) {
           if (e.key === 'Escape' && !popup.hidden) {
             popup.hidden = true;
@@ -278,38 +375,32 @@
           }
         });
 
-        // Clear button
         if (clearBtn) {
           clearBtn.addEventListener('click', function () {
-            if (typeof GreetingWidget !== 'undefined') {
-              GreetingWidget.setName('');
-            }
-            const input = document.getElementById('name-input');
-            if (input) input.value = '';
+            if (typeof GreetingWidget !== 'undefined') GreetingWidget.setName('');
+            const input   = document.getElementById('name-input');
             const display = document.getElementById('nav-name-display');
+            if (input)   input.value = '';
             if (display) display.textContent = 'Set Name';
           });
         }
 
-        // After name form submit, update nav label and close popup
         const nameForm = document.getElementById('name-form');
         if (nameForm) {
           nameForm.addEventListener('submit', function () {
             setTimeout(function () {
-              const input = document.getElementById('name-input');
+              const input   = document.getElementById('name-input');
               const display = document.getElementById('nav-name-display');
               if (input && display) {
                 const val = input.value.trim();
                 display.textContent = val ? '🐾 ' + val : 'Set Name';
               }
-              // Close popup after save
               popup.hidden = true;
               trigger.setAttribute('aria-expanded', 'false');
             }, 80);
           });
         }
 
-        // On load: restore name label from localStorage
         const savedName = localStorage.getItem('tld_userName');
         if (savedName) {
           try {
